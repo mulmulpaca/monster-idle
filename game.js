@@ -745,6 +745,17 @@ setInterval(function () {
   }
 }, 10 * 1000);
 
+// 화면 맨 아래에 게임 버전 표시
+document.getElementById("app-version").textContent = "v" + APP_VERSION;
+
+// PWA: 창고지기(sw.js) 등록 → 인터넷이 끊겨도 게임이 열리게 함
+// (https 주소나 localhost에서만 동작. 그 밖의 주소에서는 조용히 건너뜀)
+if ("serviceWorker" in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register("sw.js").catch(function (error) {
+    console.warn("창고지기를 등록하지 못했어요:", error);
+  });
+}
+
 // 저장된 데이터를 불러오고, 꺼 둔 동안의 보상을 받은 뒤 화면 그리기
 loadGame();
 collectOfflineReward(); // 안에서 render()까지 함

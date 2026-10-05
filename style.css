@@ -23,7 +23,8 @@ body {
   min-height: 100%; /* 화면이 작아서 내용이 넘치면 스크롤되도록 (height가 아니라 min-height) */
   max-width: 480px;  /* PC에서 열어도 폰처럼 좁게 보이도록 */
   margin: 0 auto;
-  padding: 24px 20px;
+  /* 노치·홈 막대에 가려지지 않게 기기가 알려 주는 여백(safe-area)을 더함 */
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -531,4 +532,11 @@ body {
   border: 1px dashed #c9bba5;
   border-radius: 8px;
   cursor: pointer;
+}
+
+/* 게임 버전 글씨: 아주 작고 흐리게 */
+.app-version {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #c9bba5;
 }
