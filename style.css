@@ -20,7 +20,7 @@ body {
 
 /* ===== 게임 화면: 세로로 쌓고 가운데 정렬 ===== */
 .game {
-  height: 100%;
+  min-height: 100%; /* 화면이 작아서 내용이 넘치면 스크롤되도록 (height가 아니라 min-height) */
   max-width: 480px;  /* PC에서 열어도 폰처럼 좁게 보이도록 */
   margin: 0 auto;
   padding: 24px 20px;
@@ -29,6 +29,13 @@ body {
   align-items: center;
   justify-content: center;
   gap: 16px;
+}
+
+.coins {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
 }
 
 .level {
@@ -137,6 +144,74 @@ body {
   color: #d94f70;
   font-weight: bold;
   font-size: 1.4rem;
+}
+
+/* ===== 먹이 주기 버튼 ===== */
+.feed-btn {
+  padding: 12px 24px;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #fff;
+  background: #e07a2f;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* 코인이 모자라서 못 누를 때: 흐리게 */
+.feed-btn:disabled {
+  background: #d8c8b0;
+  cursor: default;
+}
+
+/* ===== 방치 보상 팝업 ===== */
+/* 화면 전체를 반투명하게 덮는 바탕 (뒤에 있는 몬스터가 눌리지 않게 막아 줌) */
+.popup-backdrop {
+  position: fixed;
+  inset: 0; /* 화면 위·아래·왼쪽·오른쪽 끝까지 */
+  background: rgba(60, 45, 30, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* hidden일 때는 꼭 숨기기 (위의 display: flex가 hidden을 덮어쓰지 않도록) */
+.popup-backdrop[hidden] {
+  display: none;
+}
+
+/* 가운데 하얀 상자 */
+.popup {
+  width: 100%;
+  max-width: 320px;
+  padding: 24px 20px;
+  background: #fffaf0;
+  border-radius: 16px;
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.popup p {
+  margin: 0 0 16px;
+}
+
+.popup strong {
+  font-size: 1.5rem;
+  color: #e07a2f;
+}
+
+.popup-btn {
+  padding: 10px 40px;
+  font: inherit;
+  font-weight: bold;
+  color: #fff;
+  background: #7ac74f;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
 }
 
 /* ===== 개발용 버튼들: 눈에 덜 띄게 작고 흐리게 ===== */

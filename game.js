@@ -1,12 +1,31 @@
 // ===== 1. 게임 상태 (데이터) =====
 // 게임에서 기억해야 하는 숫자들을 한곳에 모아 둠
 const state = {
-  level: 1, // 현재 레벨
-  exp: 0,   // 현재 레벨에서 모은 경험치
+  level: 1,            // 현재 레벨
+  exp: 0,              // 현재 레벨에서 모은 경험치
+  coins: 0,            // 가진 코인
+  lastSeen: Date.now(), // 마지막으로 게임을 보고 있던 시각 (방치 보상 계산용)
 };
 
-// 탭 1번에 얻는 경험치
-const EXP_PER_TAP = 1;
+// 보상 숫자표: 게임 밸런스를 바꿀 때는 여기만 고치면 됨
+const REWARDS = {
+  expPerTap: 1,            // 탭 1번에 얻는 경험치
+  coinPerTap: 1,           // 탭 1번에 얻는 코인
+  offlineCoinPerMinute: 1, // 자리 비운 1분마다 "레벨 × 이 값" 만큼 코인
+  offlineMaxHours: 8,      // 방치 보상은 최대 이 시간까지만 쌓임
+  feedCost: 50,            // 먹이 1번 가격 (코인)
+  feedExp: 30,             // 먹이 1번에 얻는 경험치
+};
+
+// 개발용 버튼 숫자 (게임 규칙이 아니라 테스트용)
+const DEV = {
+  addExp: 100,   // "경험치 +100" 버튼
+  skipHours: 1,  // "1시간 지난 것처럼" 버튼
+};
+
+// 시간 계산용 상수 (컴퓨터는 시간을 1/1000초 단위로 셈)
+const ONE_MINUTE = 60 * 1000;
+const ONE_HOUR = 60 * ONE_MINUTE;
 
 // 진화 단계표: 모습·이름을 바꿀 때는 여기만 고치면 됨
 // - minLevel: 이 레벨부터 이 모습이 됨 (위에서 아래로 레벨이 커지는 순서로 적기)
@@ -56,9 +75,11 @@ function getStage(level) {
 const SAVE_KEY = "monster-idle-save";
 
 // 지금 상태를 보관함에 저장
+// 저장할 때마다 "지금 게임을 보고 있다"는 뜻으로 lastSeen을 지금 시각으로 바꿈
 function saveGame() {
+  state.lastSeen = Date.now();
   try {
-    // 객체 → 글자로 바꿔서 저장 (예: {"level":2,"exp":5})
+    // 객체 → 글자로 바꿔서 저장 (예: {"level":2,"exp":5,"coins":30,"lastSeen":…})
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch (error) {
     // 시크릿 모드 등에서 저장이 막혀도 게임은 계속 진행
@@ -83,7 +104,7 @@ function loadGame() {
     // 글자 → 객체로 되돌리기 (글자가 깨져 있으면 여기서 오류가 나서 catch로 감)
     const data = JSON.parse(text);
 
-    // 숫자가 이상하면(글자, 음수, 소수, 레벨 0 등) 쓰지 않음
+    // 레벨·경험치가 이상하면(글자, 음수, 소수, 레벨 0 등) 쓰지 않음
     if (!data || !isWholeNumber(data.level) || data.level < 1 || !isWholeNumber(data.exp)) {
       console.warn("저장 데이터가 이상해서 처음부터 시작해요:", data);
       return;
@@ -92,6 +113,15 @@ function loadGame() {
     state.level = data.level;
     state.exp = data.exp;
     applyLevelUps(); // 경험치가 너무 많이 저장돼 있으면 맞게 레벨업
+
+    // 코인·시각은 예전 저장 데이터에 없을 수 있음
+    // → 없거나 이상하면 레벨은 살리고 이것만 기본값(0코인, 지금 시각)으로 둠
+    if (isWholeNumber(data.coins)) {
+      state.coins = data.coins;
+    }
+    if (isWholeNumber(data.lastSeen)) {
+      state.lastSeen = data.lastSeen;
+    }
   } catch (error) {
     console.warn("저장 데이터를 읽지 못해서 처음부터 시작해요:", error);
   }
@@ -106,11 +136,15 @@ function resetGame() {
   }
   state.level = 1;
   state.exp = 0;
+  state.coins = 0;
+  state.lastSeen = Date.now();
+  closeOfflinePopup();
   render();
 }
 
 // ===== 4. 화면 요소 찾아 두기 =====
 // index.html에서 id로 이름표를 붙여 둔 요소들을 가져옴
+const coinsEl = document.getElementById("coins");
 const levelEl = document.getElementById("level");
 const expFillEl = document.getElementById("exp-fill");
 const expTextEl = document.getElementById("exp-text");
@@ -118,14 +152,25 @@ const monsterAreaEl = document.getElementById("monster-area");
 const monsterEl = document.getElementById("monster");
 const monsterNameEl = document.getElementById("monster-name");
 const messageEl = document.getElementById("message");
+const feedBtnEl = document.getElementById("feed-btn");
 const addExpBtnEl = document.getElementById("add-exp-btn");
+const skipTimeBtnEl = document.getElementById("skip-time-btn");
 const resetBtnEl = document.getElementById("reset-btn");
+const offlinePopupEl = document.getElementById("offline-popup");
+const offlineCoinsEl = document.getElementById("offline-coins");
+const offlineOkBtnEl = document.getElementById("offline-ok-btn");
 
 // ===== 5. 화면 그리기 =====
+// 큰 숫자에 쉼표 넣기 (1260 → "1,260")
+function formatNumber(n) {
+  return n.toLocaleString("ko-KR");
+}
+
 // state(데이터)를 보고 화면을 최신 상태로 맞춤
 function render() {
   const need = requiredExp(state.level);
 
+  coinsEl.textContent = formatNumber(state.coins);
   levelEl.textContent = state.level;
   expTextEl.textContent = state.exp + " / " + need;
 
@@ -136,10 +181,13 @@ function render() {
   const stage = getStage(state.level);
   monsterEl.textContent = stage.emoji;
   monsterNameEl.textContent = stage.name;
+
+  // 코인이 모자라면 먹이 버튼을 못 누르게 함
+  feedBtnEl.disabled = state.coins < REWARDS.feedCost;
 }
 
 // ===== 6. 경험치 얻기 =====
-// 탭이든 개발용 버튼이든 경험치는 모두 여기를 거침
+// 탭이든 먹이든 개발용 버튼이든 경험치는 모두 여기를 거침
 function gainExp(amount) {
   // ① 받기 전의 진화 단계를 기억해 둠
   const stageBefore = getStage(state.level);
@@ -164,13 +212,67 @@ function gainExp(amount) {
   showFloatText("+" + amount);
 }
 
-// 탭했을 때
+// 탭했을 때: 코인 받고 경험치 받기
 function onTap() {
   playAnimation(monsterEl, "bounce");
-  gainExp(EXP_PER_TAP);
+  state.coins += REWARDS.coinPerTap;
+  gainExp(REWARDS.expPerTap); // 여기서 저장·화면 갱신까지 함
 }
 
-// ===== 7. 효과들 =====
+// 먹이 주기: 코인을 내고 경험치 받기
+function feed() {
+  if (state.coins < REWARDS.feedCost) {
+    return; // 코인이 모자라면 아무것도 안 함
+  }
+  state.coins -= REWARDS.feedCost;
+  playAnimation(monsterEl, "bounce");
+  gainExp(REWARDS.feedExp);
+}
+
+// ===== 7. 방치 보상 =====
+// 마지막으로 본 시각(lastSeen)부터 지금까지 흐른 시간만큼 코인을 줌
+function collectOfflineReward() {
+  // ① 흐른 시간 계산: 음수(폰 시계를 되돌림)면 0, 최대 시간보다 길면 최대 시간으로 자름
+  let awayTime = Date.now() - state.lastSeen;
+  awayTime = Math.max(awayTime, 0);
+  awayTime = Math.min(awayTime, REWARDS.offlineMaxHours * ONE_HOUR);
+
+  // ② 분으로 바꾸기 (1분이 안 되는 자투리는 버림)
+  const minutes = Math.floor(awayTime / ONE_MINUTE);
+
+  // ③ 코인 = 분 × 레벨 × 1분당 코인
+  const coins = minutes * state.level * REWARDS.offlineCoinPerMinute;
+
+  // ④ 바로 지갑에 넣고 저장 (lastSeen도 지금으로 바뀌므로 두 번 받을 일이 없음)
+  state.coins += coins;
+  saveGame();
+  render();
+
+  // ⑤ 받은 게 있으면 팝업으로 알려 줌
+  if (coins > 0) {
+    showOfflinePopup(coins);
+  }
+}
+
+// 팝업 보여 주기 (이미 떠 있으면 금액을 더해서 보여 줌)
+let popupCoins = 0;
+function showOfflinePopup(coins) {
+  popupCoins += coins;
+  offlineCoinsEl.textContent = formatNumber(popupCoins);
+  offlinePopupEl.hidden = false;
+}
+
+function closeOfflinePopup() {
+  popupCoins = 0;
+  offlinePopupEl.hidden = true;
+}
+
+// 화면을 보고 있는지 확인 (다른 앱·탭으로 가면 "hidden"이 됨)
+function isWatching() {
+  return document.visibilityState === "visible";
+}
+
+// ===== 8. 효과들 =====
 
 // 요소에 애니메이션 클래스를 붙여서 효과를 재생 (통 튀기, 반짝임 등)
 function playAnimation(el, className) {
@@ -217,13 +319,28 @@ function showMessage(text) {
   }, 1500);
 }
 
-// ===== 8. 시작 =====
+// ===== 9. 시작 =====
 // 몬스터 영역에 손가락이 닿는 순간(pointerdown) onTap 실행
 monsterAreaEl.addEventListener("pointerdown", onTap);
 
+// 먹이 주기 버튼 (가격은 REWARDS에서 가져와서 글자로 보여 줌)
+feedBtnEl.textContent = "🍖 먹이 주기 (" + REWARDS.feedCost + "코인)";
+feedBtnEl.addEventListener("click", feed);
+
+// 방치 보상 팝업의 "받기" 버튼
+offlineOkBtnEl.addEventListener("click", closeOfflinePopup);
+
 // 개발용: 경험치 +100 버튼
+addExpBtnEl.textContent = "🔧 경험치 +" + DEV.addExp;
 addExpBtnEl.addEventListener("click", function () {
-  gainExp(100);
+  gainExp(DEV.addExp);
+});
+
+// 개발용: 마지막으로 본 시각을 1시간 앞으로 당긴 뒤, 진짜 방치 보상과 같은 함수를 부름
+skipTimeBtnEl.textContent = "🔧 " + DEV.skipHours + "시간 지난 것처럼";
+skipTimeBtnEl.addEventListener("click", function () {
+  state.lastSeen -= DEV.skipHours * ONE_HOUR;
+  collectOfflineReward();
 });
 
 // 초기화 버튼: 실수로 누르지 않게 한 번 더 물어봄
@@ -233,6 +350,23 @@ resetBtnEl.addEventListener("click", function () {
   }
 });
 
-// 저장된 데이터를 불러온 뒤 처음 화면 그리기
+// 다른 앱·탭으로 갔다가 돌아오는 것 감지
+document.addEventListener("visibilitychange", function () {
+  if (isWatching()) {
+    collectOfflineReward(); // 돌아옴 → 자리 비운 만큼 보상
+  } else {
+    saveGame(); // 떠남 → 떠난 시각을 저장
+  }
+});
+
+// 보고 있는 동안에는 10초마다 "아직 보고 있음"을 저장
+// (켜 놓고 가만히 있는 시간은 방치 보상에 들어가지 않게)
+setInterval(function () {
+  if (isWatching()) {
+    saveGame();
+  }
+}, 10 * 1000);
+
+// 저장된 데이터를 불러오고, 꺼 둔 동안의 보상을 받은 뒤 화면 그리기
 loadGame();
-render();
+collectOfflineReward(); // 안에서 render()까지 함
