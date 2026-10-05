@@ -7,7 +7,10 @@ const state = {
   exp: 0,               // 현재 레벨에서 모은 경험치
   coins: 0,             // 가진 코인
   lastSeen: Date.now(), // 마지막으로 게임을 보고 있던 시각 (방치 보상 계산용)
-  owned: [],            // 뽑아서 가진 몬스터 id 목록 (예: ["frog", "fox"])
+  // 도감 기록: 가진 몬스터마다 기록 카드 하나 (못 모은 몬스터는 카드가 없음)
+  // 예: { fox: { firstAt: 처음 얻은 시각, count: 뽑힌 횟수 } }
+  // 도감 기능 전에 얻은 몬스터는 날짜를 모르므로 { firstAt: null, count: 1, legacy: true }
+  collection: {},
   skin: null,           // 고른 겉모습 몬스터 id (null이면 기본 모습)
 };
 
@@ -59,6 +62,19 @@ function findRarity(id) {
   return GACHA.rarities.find(function (rarity) {
     return rarity.id === id;
   });
+}
+
+// 이 몬스터를 가지고 있나? (도감 기록 카드가 있는지 확인)
+// hasOwnProperty: 객체에 "직접" 들어 있는 것만 확인 (자바스크립트가 기본으로 넣어 둔 이름에 속지 않게)
+function isOwned(id) {
+  return Object.prototype.hasOwnProperty.call(state.collection, id);
+}
+
+// 가진 몬스터 수 (등급 id를 주면 그 등급만 셈)
+function countOwned(rarityId) {
+  return MONSTERS.filter(function (monster) {
+    return isOwned(monster.id) && (rarityId === undefined || monster.rarity === rarityId);
+  }).length;
 }
 
 // 지금 화면에 보일 모습: 겉모습을 골랐으면 그 몬스터, 아니면 레벨에 맞는 진화 모습
@@ -122,19 +138,52 @@ function loadGame() {
     if (isWholeNumber(data.lastSeen)) {
       state.lastSeen = data.lastSeen;
     }
-    if (Array.isArray(data.owned)) {
-      // 몬스터 목록에 있는 id만, 중복 없이 남김 (나중에 몬스터를 지워도 안전하게)
-      state.owned = data.owned.filter(function (id, index) {
-        return findMonster(id) !== undefined && data.owned.indexOf(id) === index;
-      });
+    if (data.collection && typeof data.collection === "object") {
+      state.collection = loadCollection(data.collection);
+    } else if (Array.isArray(data.owned)) {
+      state.collection = migrateOwned(data.owned); // 도감 기능 전의 예전 저장
     }
     // 가진 몬스터의 모습만 고를 수 있음 (아니면 기본 모습)
-    if (state.owned.includes(data.skin)) {
+    if (isOwned(data.skin)) {
       state.skin = data.skin;
     }
   } catch (error) {
     console.warn("저장 데이터를 읽지 못해서 처음부터 시작해요:", error);
   }
+}
+
+// 저장된 도감 기록 검사하기
+// 몬스터 목록(MONSTERS)에 있는 몬스터만 확인하므로, 모르는 id는 자연히 버려짐
+function loadCollection(saved) {
+  const collection = {};
+  for (const monster of MONSTERS) {
+    const record = Object.prototype.hasOwnProperty.call(saved, monster.id) ? saved[monster.id] : null;
+    if (!record || typeof record !== "object") {
+      continue; // 기록 없음 → 아직 못 모은 몬스터
+    }
+    collection[monster.id] = {
+      // 날짜가 이상하면 null (화면에는 "기록 없음")
+      firstAt: isWholeNumber(record.firstAt) ? record.firstAt : null,
+      // 횟수가 이상하면(0, 음수, 글자) 1번으로
+      count: isWholeNumber(record.count) && record.count >= 1 ? record.count : 1,
+    };
+    if (record.legacy === true) {
+      collection[monster.id].legacy = true;
+    }
+  }
+  return collection;
+}
+
+// 예전 저장(owned: ["frog", "fox"])을 새 도감 기록으로 옮기기
+// 예전에는 날짜·중복 횟수를 기록하지 않았으므로 legacy(예전 것) 표시를 붙여 둠
+function migrateOwned(owned) {
+  const collection = {};
+  for (const monster of MONSTERS) {
+    if (owned.includes(monster.id)) {
+      collection[monster.id] = { firstAt: null, count: 1, legacy: true };
+    }
+  }
+  return collection;
 }
 
 // 저장 데이터를 지우고 처음 상태로 되돌리기 (개발용)
@@ -148,11 +197,12 @@ function resetGame() {
   state.exp = 0;
   state.coins = 0;
   state.lastSeen = Date.now();
-  state.owned = [];
+  state.collection = {};
   state.skin = null;
   closeOfflinePopup();
   closeGachaPopup();
-  closeCollection();
+  closeDetail();
+  closeDex();
   render();
 }
 
@@ -168,7 +218,7 @@ const monsterNameEl = document.getElementById("monster-name");
 const messageEl = document.getElementById("message");
 const feedBtnEl = document.getElementById("feed-btn");
 const eggBtnEl = document.getElementById("egg-btn");
-const collectionBtnEl = document.getElementById("collection-btn");
+const dexBtnEl = document.getElementById("dex-btn");
 const addExpBtnEl = document.getElementById("add-exp-btn");
 const addCoinsBtnEl = document.getElementById("add-coins-btn");
 const skipTimeBtnEl = document.getElementById("skip-time-btn");
@@ -189,11 +239,25 @@ const gachaNewEl = document.getElementById("gacha-new");
 const gachaNoteEl = document.getElementById("gacha-note");
 const gachaUseBtnEl = document.getElementById("gacha-use-btn");
 const gachaCloseBtnEl = document.getElementById("gacha-close-btn");
-// 컬렉션 팝업
-const collectionPopupEl = document.getElementById("collection-popup");
-const collectionCountEl = document.getElementById("collection-count");
-const collectionGridEl = document.getElementById("collection-grid");
-const collectionCloseBtnEl = document.getElementById("collection-close-btn");
+// 도감 팝업
+const dexPopupEl = document.getElementById("dex-popup");
+const dexTotalEl = document.getElementById("dex-total");
+const dexRaritySummaryEl = document.getElementById("dex-rarity-summary");
+const dexBasicBtnEl = document.getElementById("dex-basic-btn");
+const dexSectionsEl = document.getElementById("dex-sections");
+const dexCloseBtnEl = document.getElementById("dex-close-btn");
+// 몬스터 상세 팝업
+const detailPopupEl = document.getElementById("detail-popup");
+const detailEmojiEl = document.getElementById("detail-emoji");
+const detailNameEl = document.getElementById("detail-name");
+const detailRarityEl = document.getElementById("detail-rarity");
+const detailRecordsEl = document.getElementById("detail-records");
+const detailFirstEl = document.getElementById("detail-first");
+const detailCountEl = document.getElementById("detail-count");
+const detailUnknownEl = document.getElementById("detail-unknown");
+const detailCurrentEl = document.getElementById("detail-current");
+const detailUseBtnEl = document.getElementById("detail-use-btn");
+const detailBackBtnEl = document.getElementById("detail-back-btn");
 
 // ===== 5. 화면 그리기 =====
 // 큰 숫자에 쉼표 넣기 (1260 → "1,260")
@@ -354,11 +418,13 @@ function buyEgg() {
   state.coins -= GACHA.eggCost;
 
   const monster = drawMonster();
-  const isNew = !state.owned.includes(monster.id);
+  const isNew = !isOwned(monster.id);
   if (isNew) {
-    state.owned.push(monster.id); // 새 몬스터 → 컬렉션에 추가
+    // 새 몬스터 → 도감에 기록 카드 만들기 (지금 시각, 1번)
+    state.collection[monster.id] = { firstAt: Date.now(), count: 1 };
   } else {
-    state.coins += GACHA.duplicateRefund; // 이미 있음 → 코인 일부 돌려줌
+    state.collection[monster.id].count += 1; // 뽑힌 횟수 +1
+    state.coins += GACHA.duplicateRefund;    // 이미 있음 → 코인 일부 돌려줌
   }
 
   saveGame();
@@ -392,7 +458,7 @@ function playGachaShow(monster, isNew) {
   gachaNewEl.hidden = !isNew;
   gachaUseBtnEl.hidden = !isNew;
   gachaNoteEl.textContent = isNew
-    ? "새 몬스터가 컬렉션에 들어왔어요!"
+    ? "새 몬스터가 도감에 등록됐어요!"
     : "이미 가진 몬스터예요. " + GACHA.duplicateRefund + "코인을 돌려받았어요.";
 
   // 시간에 맞춰 장면 바꾸기
@@ -423,10 +489,10 @@ function closeGachaPopup() {
   gachaPopupEl.hidden = true;
 }
 
-// ===== 9. 컬렉션과 겉모습 =====
+// ===== 9. 도감과 겉모습 =====
 // 겉모습 바꾸기 (null이면 기본 모습). 레벨·경험치는 그대로
 function setSkin(id) {
-  if (id !== null && !state.owned.includes(id)) {
+  if (id !== null && !isOwned(id)) {
     return; // 가지지 않은 몬스터는 고를 수 없음
   }
   state.skin = id;
@@ -434,55 +500,127 @@ function setSkin(id) {
   render();
 }
 
-// 컬렉션 칸 하나 만들기
-function createCollectionItem(skinId, emoji, name, color) {
+// 시각 → "2026년 10월 5일"
+function formatDate(time) {
+  const date = new Date(time);
+  return date.getFullYear() + "년 " + (date.getMonth() + 1) + "월 " + date.getDate() + "일";
+}
+
+// 도감 칸 하나 만들기: 가졌으면 이모지·이름, 못 모았으면 검은 실루엣·"???"
+function createDexItem(monster) {
+  const owned = isOwned(monster.id);
+
   const item = document.createElement("button");
   item.type = "button";
-  item.className = "collection-item";
-  if (state.skin === skinId) {
+  item.className = "dex-item";
+  if (state.skin === monster.id) {
     item.classList.add("selected"); // 지금 쓰는 모습에 테두리
   }
-  item.style.setProperty("--rarity-color", color);
+  item.style.setProperty("--rarity-color", findRarity(monster.rarity).color);
 
   const emojiEl = document.createElement("span");
-  emojiEl.className = "collection-emoji";
-  emojiEl.textContent = emoji;
+  emojiEl.className = owned ? "dex-emoji" : "dex-emoji silhouette";
+  emojiEl.textContent = monster.emoji;
   const nameEl = document.createElement("span");
-  nameEl.className = "collection-name";
-  nameEl.textContent = name;
+  nameEl.className = "dex-name";
+  nameEl.textContent = owned ? monster.name : "???";
   item.appendChild(emojiEl);
   item.appendChild(nameEl);
 
   item.addEventListener("click", function () {
-    setSkin(skinId);
-    renderCollection(); // 테두리 위치 다시 그리기
+    openDetail(monster.id);
   });
   return item;
 }
 
-// 컬렉션 창 내용 그리기: 맨 앞은 기본 모습, 그 뒤로 가진 몬스터 (목록 순서대로)
-function renderCollection() {
-  collectionGridEl.textContent = ""; // 이전 칸들 비우기
-  collectionCountEl.textContent = state.owned.length + " / " + MONSTERS.length;
+// 도감 창 내용 그리기
+function renderDex() {
+  // ① 전체 수집률 (예: 4 / 10 (40%))
+  const owned = countOwned();
+  const percent = Math.round((owned / MONSTERS.length) * 100);
+  dexTotalEl.textContent = owned + " / " + MONSTERS.length + " (" + percent + "%)";
 
+  // ② 등급별 수집률 (예: 일반 3/5 · 레어 1/3 · 전설 0/2)
+  const summary = GACHA.rarities.map(function (rarity) {
+    const total = MONSTERS.filter(function (monster) {
+      return monster.rarity === rarity.id;
+    }).length;
+    return rarity.name + " " + countOwned(rarity.id) + "/" + total;
+  });
+  dexRaritySummaryEl.textContent = summary.join(" · ");
+
+  // ③ 기본 모습 버튼 (지금 레벨의 진화 모습)
   const stage = getStage(state.level);
-  collectionGridEl.appendChild(createCollectionItem(null, stage.emoji, "기본 모습", "#c9bba5"));
+  dexBasicBtnEl.textContent = stage.emoji + " 기본 모습";
+  dexBasicBtnEl.classList.toggle("selected", state.skin === null);
 
-  for (const monster of MONSTERS) {
-    if (state.owned.includes(monster.id)) {
-      const rarity = findRarity(monster.rarity);
-      collectionGridEl.appendChild(createCollectionItem(monster.id, monster.emoji, monster.name, rarity.color));
+  // ④ 등급마다 제목 + 몬스터 칸들
+  dexSectionsEl.textContent = ""; // 이전 내용 비우기
+  for (const rarity of GACHA.rarities) {
+    const title = document.createElement("h3");
+    title.className = "dex-section-title";
+    title.style.setProperty("--rarity-color", rarity.color);
+    title.textContent = rarity.name;
+    dexSectionsEl.appendChild(title);
+
+    const grid = document.createElement("div");
+    grid.className = "dex-grid";
+    for (const monster of MONSTERS) {
+      if (monster.rarity === rarity.id) {
+        grid.appendChild(createDexItem(monster));
+      }
     }
+    dexSectionsEl.appendChild(grid);
   }
 }
 
-function openCollection() {
-  renderCollection();
-  collectionPopupEl.hidden = false;
+function openDex() {
+  renderDex();
+  dexPopupEl.hidden = false;
 }
 
-function closeCollection() {
-  collectionPopupEl.hidden = true;
+function closeDex() {
+  dexPopupEl.hidden = true;
+}
+
+// 몬스터 상세 창 열기: 등급, 처음 얻은 날, 뽑힌 횟수
+let detailId = null; // 지금 상세 창에 보이는 몬스터 id
+function openDetail(id) {
+  detailId = id;
+  const monster = findMonster(id);
+  const rarity = findRarity(monster.rarity);
+  const record = state.collection[id];
+  const owned = isOwned(id);
+
+  detailEmojiEl.textContent = monster.emoji;
+  detailEmojiEl.classList.toggle("silhouette", !owned);
+  detailNameEl.textContent = owned ? monster.name : "???";
+  detailRarityEl.textContent = "등급: " + rarity.name;
+  detailRarityEl.style.setProperty("--rarity-color", rarity.color);
+
+  // 가진 몬스터만 기록을 보여 줌
+  detailRecordsEl.hidden = !owned;
+  detailUnknownEl.hidden = owned;
+  if (owned) {
+    if (record.legacy) {
+      // 도감 기능 전에 얻은 몬스터: 날짜를 모르고, 그동안의 중복은 세지 않았음
+      detailFirstEl.textContent = "도감 기능 전에 얻음";
+      detailCountEl.textContent = record.count + "번 이상";
+    } else {
+      detailFirstEl.textContent = record.firstAt === null ? "기록 없음" : formatDate(record.firstAt);
+      detailCountEl.textContent = record.count + "번";
+    }
+  }
+
+  // 겉모습 버튼: 가졌고 지금 모습이 아니면 "키우기", 지금 모습이면 안내 문구
+  detailUseBtnEl.hidden = !owned || state.skin === id;
+  detailCurrentEl.hidden = !owned || state.skin !== id;
+
+  detailPopupEl.hidden = false;
+}
+
+function closeDetail() {
+  detailPopupEl.hidden = true;
 }
 
 // ===== 10. 효과들 =====
@@ -541,7 +679,7 @@ feedBtnEl.textContent = "🍖 먹이 주기 (" + REWARDS.feedCost + "코인)";
 feedBtnEl.addEventListener("click", feed);
 eggBtnEl.textContent = "🥚 알 뽑기 (" + GACHA.eggCost + "코인)";
 eggBtnEl.addEventListener("click", buyEgg);
-collectionBtnEl.addEventListener("click", openCollection);
+dexBtnEl.addEventListener("click", openDex);
 
 // 팝업 버튼들
 offlineOkBtnEl.addEventListener("click", closeOfflinePopup);
@@ -550,7 +688,17 @@ gachaUseBtnEl.addEventListener("click", function () {
   setSkin(lastDrawn.id);
   closeGachaPopup();
 });
-collectionCloseBtnEl.addEventListener("click", closeCollection);
+dexCloseBtnEl.addEventListener("click", closeDex);
+dexBasicBtnEl.addEventListener("click", function () {
+  setSkin(null); // 기본 모습으로
+  renderDex();   // 테두리 위치 다시 그리기
+});
+detailUseBtnEl.addEventListener("click", function () {
+  setSkin(detailId);
+  closeDetail();
+  renderDex(); // 도감의 테두리 위치 다시 그리기
+});
+detailBackBtnEl.addEventListener("click", closeDetail);
 
 // 개발용: 경험치 +100 버튼
 addExpBtnEl.textContent = "🔧 경험치 +" + DEV.addExp;

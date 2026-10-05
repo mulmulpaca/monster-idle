@@ -40,7 +40,7 @@
       <button class="action-btn feed-btn" id="feed-btn" type="button">🍖 먹이 주기</button>
       <button class="action-btn egg-btn" id="egg-btn" type="button">🥚 알 뽑기</button>
     </div>
-    <button class="collection-btn" id="collection-btn" type="button">📖 컬렉션</button>
+    <button class="dex-btn" id="dex-btn" type="button">📖 도감</button>
 
     <!-- 개발용 버튼들 (게임이 완성되면 없앨 예정, 글자는 game.js가 채움) -->
     <div class="dev-tools">
@@ -82,13 +82,47 @@
     </div>
   </div>
 
-  <!-- 컬렉션 팝업: 맨 앞은 기본 모습, 그 뒤로 가진 몬스터 (칸은 game.js가 만듦) -->
-  <div class="popup-backdrop" id="collection-popup" hidden>
+  <!-- 도감 팝업: 수집률 + 기본 모습 버튼 + 등급별 몬스터 칸 (내용은 game.js가 채움) -->
+  <div class="popup-backdrop" id="dex-popup" hidden>
+    <div class="popup dex-popup">
+      <h2 class="popup-title">📖 도감 <small id="dex-total">0 / 10 (0%)</small></h2>
+      <p class="dex-summary" id="dex-rarity-summary"></p>
+
+      <!-- 기본 모습(레벨에 따라 진화하는 모습)으로 돌아가는 버튼 -->
+      <div class="dex-basic">
+        지금 모습:
+        <button class="dex-basic-btn" id="dex-basic-btn" type="button">🐣 기본 모습</button>
+      </div>
+
+      <!-- 등급별 제목과 몬스터 칸들 -->
+      <div class="dex-sections" id="dex-sections"></div>
+
+      <button class="popup-btn secondary" id="dex-close-btn" type="button">닫기</button>
+    </div>
+  </div>
+
+  <!-- 몬스터 상세 팝업: 도감에서 몬스터를 누르면 위에 뜸 -->
+  <div class="popup-backdrop" id="detail-popup" hidden>
     <div class="popup">
-      <h2 class="popup-title">📖 컬렉션 <small id="collection-count">0 / 10</small></h2>
-      <p class="collection-help">탭하면 그 모습으로 바뀌어요 (레벨은 그대로)</p>
-      <div class="collection-grid" id="collection-grid"></div>
-      <button class="popup-btn secondary" id="collection-close-btn" type="button">닫기</button>
+      <div class="detail-emoji" id="detail-emoji">🐸</div>
+      <p class="detail-name" id="detail-name">개굴이</p>
+      <p class="detail-rarity" id="detail-rarity">등급: 일반</p>
+
+      <!-- 가진 몬스터만: 기록 -->
+      <dl class="detail-records" id="detail-records">
+        <dt>처음 얻은 날</dt>
+        <dd id="detail-first"></dd>
+        <dt>뽑힌 횟수</dt>
+        <dd id="detail-count"></dd>
+      </dl>
+      <!-- 못 모은 몬스터만 -->
+      <p class="detail-unknown" id="detail-unknown">아직 만나지 못했어요</p>
+
+      <p class="detail-current" id="detail-current">지금 키우는 모습이에요 ✔</p>
+      <div class="popup-buttons">
+        <button class="popup-btn" id="detail-use-btn" type="button">이 모습으로 키우기</button>
+        <button class="popup-btn secondary" id="detail-back-btn" type="button">뒤로</button>
+      </div>
     </div>
   </div>
 
