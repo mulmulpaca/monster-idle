@@ -147,22 +147,49 @@ body {
 }
 
 /* ===== 먹이 주기 버튼 ===== */
-.feed-btn {
-  padding: 12px 24px;
+/* 먹이 주기·알 뽑기 버튼을 가로로 나란히 (좁으면 다음 줄로) */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 12px 18px;
   font: inherit;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: bold;
   color: #fff;
-  background: #e07a2f;
   border: none;
   border-radius: 12px;
   cursor: pointer;
 }
 
+.feed-btn {
+  background: #e07a2f;
+}
+
+.egg-btn {
+  background: #9b6fc9;
+}
+
 /* 코인이 모자라서 못 누를 때: 흐리게 */
-.feed-btn:disabled {
+.action-btn:disabled {
   background: #d8c8b0;
   cursor: default;
+}
+
+/* ===== 컬렉션 버튼 ===== */
+.collection-btn {
+  padding: 10px 20px;
+  font: inherit;
+  font-weight: bold;
+  color: #4a3f35;
+  background: #fffaf0;
+  border: 2px solid #e8dcc4;
+  border-radius: 12px;
+  cursor: pointer;
 }
 
 /* ===== 방치 보상 팝업 ===== */
@@ -177,9 +204,9 @@ body {
   padding: 20px;
 }
 
-/* hidden일 때는 꼭 숨기기 (위의 display: flex가 hidden을 덮어쓰지 않도록) */
-.popup-backdrop[hidden] {
-  display: none;
+/* hidden일 때는 꼭 숨기기 (다른 곳의 display 설정이 hidden을 덮어쓰지 않도록) */
+[hidden] {
+  display: none !important;
 }
 
 /* 가운데 하얀 상자 */
@@ -212,6 +239,182 @@ body {
   border: none;
   border-radius: 12px;
   cursor: pointer;
+}
+
+/* 덜 중요한 버튼 (닫기 등) */
+.popup-btn.secondary {
+  color: #4a3f35;
+  background: #e8dcc4;
+}
+
+/* 버튼 여러 개를 나란히 */
+.popup-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.popup-buttons .popup-btn {
+  padding: 10px 18px;
+}
+
+.popup-title {
+  margin: 0 0 4px;
+  font-size: 1.3rem;
+}
+
+.popup-title small {
+  font-size: 0.9rem;
+  color: #8a7d70;
+}
+
+/* ===== 뽑기 팝업 ===== */
+.gacha-box {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+/* 결과가 나오면 배경을 등급 색으로 (색은 game.js가 --rarity-color에 넣어 줌) */
+.gacha-box.revealed {
+  background: var(--rarity-color);
+  color: #fff;
+}
+
+.gacha-egg {
+  font-size: 120px;
+  line-height: 1;
+}
+
+/* 알 흔들흔들: 점점 세게 흔들림 */
+.gacha-egg.shake {
+  animation: egg-shake 1.2s ease-in;
+}
+
+@keyframes egg-shake {
+  0%, 30%  { transform: rotate(0deg); }
+  40%      { transform: rotate(-8deg); }
+  50%      { transform: rotate(8deg); }
+  60%      { transform: rotate(-14deg); }
+  70%      { transform: rotate(14deg); }
+  80%      { transform: rotate(-20deg); }
+  90%      { transform: rotate(20deg); }
+  100%     { transform: rotate(0deg); }
+}
+
+/* 알 깨짐: 팡 커지면서 사라짐 */
+.gacha-egg.crack {
+  animation: egg-crack 0.3s ease-out forwards;
+}
+
+@keyframes egg-crack {
+  from { transform: scale(0.6); opacity: 1; }
+  to   { transform: scale(1.6); opacity: 0; }
+}
+
+/* 결과 카드가 톡 튀어나오기 */
+.gacha-result {
+  animation: result-pop 0.35s ease-out;
+}
+
+@keyframes result-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  70%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.gacha-rarity {
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 0.2em;
+}
+
+.popup .gacha-rarity,
+.popup .gacha-name {
+  margin-bottom: 4px;
+}
+
+.gacha-monster {
+  font-size: 100px;
+  line-height: 1.1;
+}
+
+.gacha-name {
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.gacha-new {
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  color: #d94f70;
+  background: #fff;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+
+.gacha-note {
+  font-size: 0.95rem;
+}
+
+/* 전설 등급: 상자 주위가 금빛으로 반짝반짝 */
+.gacha-box.is-legend {
+  animation: legend-glow 1s ease-in-out infinite alternate;
+}
+
+@keyframes legend-glow {
+  from { box-shadow: 0 0 12px 4px #fff3b0; }
+  to   { box-shadow: 0 0 36px 14px #ffe066; }
+}
+
+/* ===== 컬렉션 팝업 ===== */
+.popup .collection-help {
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #8a7d70;
+}
+
+/* 칸을 한 줄에 3개씩 */
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 50vh; /* 몬스터가 많아지면 창 안에서 스크롤 */
+  overflow-y: auto;
+}
+
+/* 칸 하나: 테두리 색 = 등급 색 (game.js가 --rarity-color에 넣어 줌) */
+.collection-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 2px solid var(--rarity-color);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* 지금 쓰는 모습: 두꺼운 테두리 + 연한 배경 */
+.collection-item.selected {
+  border-width: 4px;
+  background: #fff3d6;
+}
+
+.collection-emoji {
+  font-size: 2.2rem;
+  line-height: 1.2;
+}
+
+.collection-name {
+  font-size: 0.8rem;
 }
 
 /* ===== 개발용 버튼들: 눈에 덜 띄게 작고 흐리게 ===== */

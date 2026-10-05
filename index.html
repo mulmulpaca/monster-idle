@@ -35,12 +35,17 @@
     <!-- 안내 문구 (레벨업 때는 "레벨 업!"으로 잠깐 바뀜) -->
     <p class="message" id="message">몬스터를 탭하세요!</p>
 
-    <!-- 코인을 쓰는 곳 (글자는 game.js가 가격을 넣어서 채움) -->
-    <button class="feed-btn" id="feed-btn" type="button">🍖 먹이 주기</button>
+    <!-- 코인을 쓰는 곳 (가격 글자는 game.js가 data.js 값을 넣어서 채움) -->
+    <div class="actions">
+      <button class="action-btn feed-btn" id="feed-btn" type="button">🍖 먹이 주기</button>
+      <button class="action-btn egg-btn" id="egg-btn" type="button">🥚 알 뽑기</button>
+    </div>
+    <button class="collection-btn" id="collection-btn" type="button">📖 컬렉션</button>
 
     <!-- 개발용 버튼들 (게임이 완성되면 없앨 예정, 글자는 game.js가 채움) -->
     <div class="dev-tools">
       <button class="dev-btn" id="add-exp-btn" type="button">🔧 경험치 +100</button>
+      <button class="dev-btn" id="add-coins-btn" type="button">🔧 코인 +1000</button>
       <button class="dev-btn" id="skip-time-btn" type="button">🔧 1시간 지난 것처럼</button>
       <button class="dev-btn" id="reset-btn" type="button">🔧 초기화</button>
     </div>
@@ -54,7 +59,42 @@
     </div>
   </div>
 
+  <!-- 뽑기 팝업: 알 흔들림 → 깨짐 → 결과 카드 (내용은 game.js가 채움) -->
+  <div class="popup-backdrop" id="gacha-popup" hidden>
+    <div class="popup gacha-box" id="gacha-box">
+      <!-- 연출용 알 -->
+      <div class="gacha-egg" id="gacha-egg">🥚</div>
+
+      <!-- 결과 카드 (알이 깨진 뒤에 보임) -->
+      <div class="gacha-result" id="gacha-result" hidden>
+        <p class="gacha-rarity" id="gacha-rarity">일반</p>
+        <div class="gacha-monster" id="gacha-monster">🐸</div>
+        <p class="gacha-name">
+          <span id="gacha-name">개굴이</span>
+          <span class="gacha-new" id="gacha-new">NEW!</span>
+        </p>
+        <p class="gacha-note" id="gacha-note"></p>
+        <div class="popup-buttons">
+          <button class="popup-btn" id="gacha-use-btn" type="button">이 모습으로 키우기</button>
+          <button class="popup-btn secondary" id="gacha-close-btn" type="button">닫기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 컬렉션 팝업: 맨 앞은 기본 모습, 그 뒤로 가진 몬스터 (칸은 game.js가 만듦) -->
+  <div class="popup-backdrop" id="collection-popup" hidden>
+    <div class="popup">
+      <h2 class="popup-title">📖 컬렉션 <small id="collection-count">0 / 10</small></h2>
+      <p class="collection-help">탭하면 그 모습으로 바뀌어요 (레벨은 그대로)</p>
+      <div class="collection-grid" id="collection-grid"></div>
+      <button class="popup-btn secondary" id="collection-close-btn" type="button">닫기</button>
+    </div>
+  </div>
+
   <!-- 동작 파일 연결 (화면 요소가 다 만들어진 뒤에 읽도록 맨 아래에 둠) -->
+  <!-- data.js(숫자·목록)를 먼저, game.js(동작)를 나중에 읽어야 함 -->
+  <script src="data.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

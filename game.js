@@ -1,41 +1,19 @@
+// 숫자표·몬스터 목록(REWARDS, DEV, EVOLUTIONS, GACHA, MONSTERS)은 data.js에 있음
+
 // ===== 1. 게임 상태 (데이터) =====
-// 게임에서 기억해야 하는 숫자들을 한곳에 모아 둠
+// 게임에서 기억해야 하는 것들을 한곳에 모아 둠
 const state = {
-  level: 1,            // 현재 레벨
-  exp: 0,              // 현재 레벨에서 모은 경험치
-  coins: 0,            // 가진 코인
+  level: 1,             // 현재 레벨
+  exp: 0,               // 현재 레벨에서 모은 경험치
+  coins: 0,             // 가진 코인
   lastSeen: Date.now(), // 마지막으로 게임을 보고 있던 시각 (방치 보상 계산용)
-};
-
-// 보상 숫자표: 게임 밸런스를 바꿀 때는 여기만 고치면 됨
-const REWARDS = {
-  expPerTap: 1,            // 탭 1번에 얻는 경험치
-  coinPerTap: 1,           // 탭 1번에 얻는 코인
-  offlineCoinPerMinute: 1, // 자리 비운 1분마다 "레벨 × 이 값" 만큼 코인
-  offlineMaxHours: 8,      // 방치 보상은 최대 이 시간까지만 쌓임
-  feedCost: 50,            // 먹이 1번 가격 (코인)
-  feedExp: 30,             // 먹이 1번에 얻는 경험치
-};
-
-// 개발용 버튼 숫자 (게임 규칙이 아니라 테스트용)
-const DEV = {
-  addExp: 100,   // "경험치 +100" 버튼
-  skipHours: 1,  // "1시간 지난 것처럼" 버튼
+  owned: [],            // 뽑아서 가진 몬스터 id 목록 (예: ["frog", "fox"])
+  skin: null,           // 고른 겉모습 몬스터 id (null이면 기본 모습)
 };
 
 // 시간 계산용 상수 (컴퓨터는 시간을 1/1000초 단위로 셈)
 const ONE_MINUTE = 60 * 1000;
 const ONE_HOUR = 60 * ONE_MINUTE;
-
-// 진화 단계표: 모습·이름을 바꿀 때는 여기만 고치면 됨
-// - minLevel: 이 레벨부터 이 모습이 됨 (위에서 아래로 레벨이 커지는 순서로 적기)
-// - 나중에 그림으로 바꿀 때는 각 줄에 image: "images/파일이름.png" 를 추가할 예정
-const EVOLUTIONS = [
-  { minLevel: 1,  emoji: "🐣", name: "꼬물이" },
-  { minLevel: 5,  emoji: "🦎", name: "도마돌이" },
-  { minLevel: 10, emoji: "🐊", name: "악어왕" },
-  { minLevel: 20, emoji: "🐉", name: "드래곤" },
-];
 
 // ===== 2. 규칙 =====
 // 다음 레벨까지 필요한 경험치: 레벨 × 10 (Lv1은 10, Lv2는 20, Lv3은 30 …)
@@ -69,6 +47,28 @@ function getStage(level) {
   return stage;
 }
 
+// id로 몬스터 찾기 (없으면 undefined)
+function findMonster(id) {
+  return MONSTERS.find(function (monster) {
+    return monster.id === id;
+  });
+}
+
+// id로 등급 찾기
+function findRarity(id) {
+  return GACHA.rarities.find(function (rarity) {
+    return rarity.id === id;
+  });
+}
+
+// 지금 화면에 보일 모습: 겉모습을 골랐으면 그 몬스터, 아니면 레벨에 맞는 진화 모습
+function getAppearance() {
+  if (state.skin !== null) {
+    return findMonster(state.skin);
+  }
+  return getStage(state.level);
+}
+
 // ===== 3. 저장 / 불러오기 =====
 // 브라우저의 localStorage(로컬 스토리지)라는 작은 보관함에 글자로 저장함
 // 이 이름표(키)로 보관함에서 우리 게임 데이터를 찾음
@@ -79,7 +79,7 @@ const SAVE_KEY = "monster-idle-save";
 function saveGame() {
   state.lastSeen = Date.now();
   try {
-    // 객체 → 글자로 바꿔서 저장 (예: {"level":2,"exp":5,"coins":30,"lastSeen":…})
+    // 객체 → 글자로 바꿔서 저장 (예: {"level":2,"exp":5,"coins":30,…})
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch (error) {
     // 시크릿 모드 등에서 저장이 막혀도 게임은 계속 진행
@@ -114,13 +114,23 @@ function loadGame() {
     state.exp = data.exp;
     applyLevelUps(); // 경험치가 너무 많이 저장돼 있으면 맞게 레벨업
 
-    // 코인·시각은 예전 저장 데이터에 없을 수 있음
-    // → 없거나 이상하면 레벨은 살리고 이것만 기본값(0코인, 지금 시각)으로 둠
+    // 아래 값들은 예전 저장 데이터에 없을 수 있음
+    // → 없거나 이상하면 레벨은 살리고 그 값만 기본값으로 둠
     if (isWholeNumber(data.coins)) {
       state.coins = data.coins;
     }
     if (isWholeNumber(data.lastSeen)) {
       state.lastSeen = data.lastSeen;
+    }
+    if (Array.isArray(data.owned)) {
+      // 몬스터 목록에 있는 id만, 중복 없이 남김 (나중에 몬스터를 지워도 안전하게)
+      state.owned = data.owned.filter(function (id, index) {
+        return findMonster(id) !== undefined && data.owned.indexOf(id) === index;
+      });
+    }
+    // 가진 몬스터의 모습만 고를 수 있음 (아니면 기본 모습)
+    if (state.owned.includes(data.skin)) {
+      state.skin = data.skin;
     }
   } catch (error) {
     console.warn("저장 데이터를 읽지 못해서 처음부터 시작해요:", error);
@@ -138,7 +148,11 @@ function resetGame() {
   state.exp = 0;
   state.coins = 0;
   state.lastSeen = Date.now();
+  state.owned = [];
+  state.skin = null;
   closeOfflinePopup();
+  closeGachaPopup();
+  closeCollection();
   render();
 }
 
@@ -153,12 +167,33 @@ const monsterEl = document.getElementById("monster");
 const monsterNameEl = document.getElementById("monster-name");
 const messageEl = document.getElementById("message");
 const feedBtnEl = document.getElementById("feed-btn");
+const eggBtnEl = document.getElementById("egg-btn");
+const collectionBtnEl = document.getElementById("collection-btn");
 const addExpBtnEl = document.getElementById("add-exp-btn");
+const addCoinsBtnEl = document.getElementById("add-coins-btn");
 const skipTimeBtnEl = document.getElementById("skip-time-btn");
 const resetBtnEl = document.getElementById("reset-btn");
+// 방치 보상 팝업
 const offlinePopupEl = document.getElementById("offline-popup");
 const offlineCoinsEl = document.getElementById("offline-coins");
 const offlineOkBtnEl = document.getElementById("offline-ok-btn");
+// 뽑기 팝업
+const gachaPopupEl = document.getElementById("gacha-popup");
+const gachaBoxEl = document.getElementById("gacha-box");
+const gachaEggEl = document.getElementById("gacha-egg");
+const gachaResultEl = document.getElementById("gacha-result");
+const gachaRarityEl = document.getElementById("gacha-rarity");
+const gachaMonsterEl = document.getElementById("gacha-monster");
+const gachaNameEl = document.getElementById("gacha-name");
+const gachaNewEl = document.getElementById("gacha-new");
+const gachaNoteEl = document.getElementById("gacha-note");
+const gachaUseBtnEl = document.getElementById("gacha-use-btn");
+const gachaCloseBtnEl = document.getElementById("gacha-close-btn");
+// 컬렉션 팝업
+const collectionPopupEl = document.getElementById("collection-popup");
+const collectionCountEl = document.getElementById("collection-count");
+const collectionGridEl = document.getElementById("collection-grid");
+const collectionCloseBtnEl = document.getElementById("collection-close-btn");
 
 // ===== 5. 화면 그리기 =====
 // 큰 숫자에 쉼표 넣기 (1260 → "1,260")
@@ -177,13 +212,14 @@ function render() {
   // 바 길이 = 모은 경험치 ÷ 필요 경험치 (예: 3 / 10 → 30%)
   expFillEl.style.width = (state.exp / need) * 100 + "%";
 
-  // 레벨에 맞는 진화 모습과 이름
-  const stage = getStage(state.level);
-  monsterEl.textContent = stage.emoji;
-  monsterNameEl.textContent = stage.name;
+  // 지금 모습과 이름 (겉모습을 골랐으면 그 몬스터, 아니면 진화 모습)
+  const appearance = getAppearance();
+  monsterEl.textContent = appearance.emoji;
+  monsterNameEl.textContent = appearance.name;
 
-  // 코인이 모자라면 먹이 버튼을 못 누르게 함
+  // 코인이 모자라면 버튼을 못 누르게 함
   feedBtnEl.disabled = state.coins < REWARDS.feedCost;
+  eggBtnEl.disabled = state.coins < GACHA.eggCost;
 }
 
 // ===== 6. 경험치 얻기 =====
@@ -201,8 +237,9 @@ function gainExp(amount) {
   render();
 
   // ④ 받은 후의 단계와 비교 → 달라졌으면 진화! (진화 메시지가 레벨업보다 우선)
+  //    단, 다른 겉모습을 쓰는 중이면 보이는 모습이 그대로라서 "레벨 업!"만 보여 줌
   const stageAfter = getStage(state.level);
-  if (stageAfter !== stageBefore) {
+  if (stageAfter !== stageBefore && state.skin === null) {
     playAnimation(monsterAreaEl, "evolve");
     showMessage("✨ " + stageAfter.name + withRo(stageAfter.name) + " 진화했다!");
   } else if (leveledUp) {
@@ -272,7 +309,183 @@ function isWatching() {
   return document.visibilityState === "visible";
 }
 
-// ===== 8. 효과들 =====
+// ===== 8. 알 뽑기 =====
+// 무작위 원리: Math.random()은 0 이상 1 미만의 아무 숫자를 하나 줌 (매번 다름)
+
+// ① 등급 정하기: roll(0~1 사이 숫자)로 "다트"를 던져서 맞은 칸의 등급을 고름
+//    칸 수 = chance → 일반 0~70칸, 레어 70~95칸, 전설 95~100칸
+function pickRarity(roll) {
+  let total = 0;
+  for (const rarity of GACHA.rarities) {
+    total += rarity.chance;
+  }
+
+  let dart = roll * total; // 0 ~ 100 사이 어딘가에 다트가 꽂힘
+  for (const rarity of GACHA.rarities) {
+    if (dart < rarity.chance) {
+      return rarity; // 이 등급 칸 안에 꽂힘
+    }
+    dart -= rarity.chance; // 이 등급 칸을 지나침 → 다음 등급 칸에서 다시 확인
+  }
+  return GACHA.rarities[GACHA.rarities.length - 1]; // (소수 계산 오차 대비) 마지막 등급
+}
+
+// ② 몬스터 정하기: 그 등급의 몬스터들 중 하나를 똑같은 확률로 고름
+//    예: 일반 5종이면 roll × 5 → 0.0~4.99… → 버림하면 0,1,2,3,4 번째 중 하나
+function pickMonster(rarityId, roll) {
+  const candidates = MONSTERS.filter(function (monster) {
+    return monster.rarity === rarityId;
+  });
+  return candidates[Math.floor(roll * candidates.length)];
+}
+
+// 알 하나 깨기: 등급 → 몬스터 순서로 무작위 뽑기
+function drawMonster() {
+  const rarity = pickRarity(Math.random());
+  return pickMonster(rarity.id, Math.random());
+}
+
+// 알 사기: 코인 내기 → 뽑기 → 결과 반영 → 저장 → 연출
+// (연출 도중에 새로고침해도 결과가 날아가지 않도록 저장을 먼저 함)
+function buyEgg() {
+  if (state.coins < GACHA.eggCost) {
+    return; // 코인이 모자라면 아무것도 안 함
+  }
+  state.coins -= GACHA.eggCost;
+
+  const monster = drawMonster();
+  const isNew = !state.owned.includes(monster.id);
+  if (isNew) {
+    state.owned.push(monster.id); // 새 몬스터 → 컬렉션에 추가
+  } else {
+    state.coins += GACHA.duplicateRefund; // 이미 있음 → 코인 일부 돌려줌
+  }
+
+  saveGame();
+  render();
+  playGachaShow(monster, isNew);
+}
+
+// 뽑기 연출: 🥚 흔들흔들(1.2초) → 💥 팡(0.3초) → 결과 카드
+const SHAKE_TIME = 1200;
+const CRACK_TIME = 300;
+let gachaTimers = [];
+let lastDrawn = null; // "이 모습으로 키우기"에서 쓸 방금 뽑은 몬스터
+
+function playGachaShow(monster, isNew) {
+  lastDrawn = monster;
+  const rarity = findRarity(monster.rarity);
+
+  // 처음 화면: 알만 보이고 결과는 숨김
+  gachaBoxEl.classList.remove("revealed", "is-legend");
+  gachaEggEl.textContent = "🥚";
+  gachaEggEl.className = "gacha-egg shake";
+  gachaEggEl.hidden = false;
+  gachaResultEl.hidden = true;
+  gachaPopupEl.hidden = false;
+
+  // 결과 내용은 미리 채워 둠 (아직 안 보임)
+  gachaBoxEl.style.setProperty("--rarity-color", rarity.color);
+  gachaRarityEl.textContent = rarity.name;
+  gachaMonsterEl.textContent = monster.emoji;
+  gachaNameEl.textContent = monster.name;
+  gachaNewEl.hidden = !isNew;
+  gachaUseBtnEl.hidden = !isNew;
+  gachaNoteEl.textContent = isNew
+    ? "새 몬스터가 컬렉션에 들어왔어요!"
+    : "이미 가진 몬스터예요. " + GACHA.duplicateRefund + "코인을 돌려받았어요.";
+
+  // 시간에 맞춰 장면 바꾸기
+  clearGachaTimers();
+  gachaTimers.push(setTimeout(function () {
+    gachaEggEl.textContent = "💥";
+    gachaEggEl.className = "gacha-egg crack";
+  }, SHAKE_TIME));
+  gachaTimers.push(setTimeout(function () {
+    gachaEggEl.hidden = true;
+    gachaResultEl.hidden = false;
+    gachaBoxEl.classList.add("revealed"); // 배경이 등급 색으로 바뀜
+    if (rarity.id === "legend") {
+      gachaBoxEl.classList.add("is-legend"); // 전설은 반짝반짝
+    }
+  }, SHAKE_TIME + CRACK_TIME));
+}
+
+function clearGachaTimers() {
+  for (const timer of gachaTimers) {
+    clearTimeout(timer);
+  }
+  gachaTimers = [];
+}
+
+function closeGachaPopup() {
+  clearGachaTimers();
+  gachaPopupEl.hidden = true;
+}
+
+// ===== 9. 컬렉션과 겉모습 =====
+// 겉모습 바꾸기 (null이면 기본 모습). 레벨·경험치는 그대로
+function setSkin(id) {
+  if (id !== null && !state.owned.includes(id)) {
+    return; // 가지지 않은 몬스터는 고를 수 없음
+  }
+  state.skin = id;
+  saveGame();
+  render();
+}
+
+// 컬렉션 칸 하나 만들기
+function createCollectionItem(skinId, emoji, name, color) {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "collection-item";
+  if (state.skin === skinId) {
+    item.classList.add("selected"); // 지금 쓰는 모습에 테두리
+  }
+  item.style.setProperty("--rarity-color", color);
+
+  const emojiEl = document.createElement("span");
+  emojiEl.className = "collection-emoji";
+  emojiEl.textContent = emoji;
+  const nameEl = document.createElement("span");
+  nameEl.className = "collection-name";
+  nameEl.textContent = name;
+  item.appendChild(emojiEl);
+  item.appendChild(nameEl);
+
+  item.addEventListener("click", function () {
+    setSkin(skinId);
+    renderCollection(); // 테두리 위치 다시 그리기
+  });
+  return item;
+}
+
+// 컬렉션 창 내용 그리기: 맨 앞은 기본 모습, 그 뒤로 가진 몬스터 (목록 순서대로)
+function renderCollection() {
+  collectionGridEl.textContent = ""; // 이전 칸들 비우기
+  collectionCountEl.textContent = state.owned.length + " / " + MONSTERS.length;
+
+  const stage = getStage(state.level);
+  collectionGridEl.appendChild(createCollectionItem(null, stage.emoji, "기본 모습", "#c9bba5"));
+
+  for (const monster of MONSTERS) {
+    if (state.owned.includes(monster.id)) {
+      const rarity = findRarity(monster.rarity);
+      collectionGridEl.appendChild(createCollectionItem(monster.id, monster.emoji, monster.name, rarity.color));
+    }
+  }
+}
+
+function openCollection() {
+  renderCollection();
+  collectionPopupEl.hidden = false;
+}
+
+function closeCollection() {
+  collectionPopupEl.hidden = true;
+}
+
+// ===== 10. 효과들 =====
 
 // 요소에 애니메이션 클래스를 붙여서 효과를 재생 (통 튀기, 반짝임 등)
 function playAnimation(el, className) {
@@ -319,21 +532,38 @@ function showMessage(text) {
   }, 1500);
 }
 
-// ===== 9. 시작 =====
+// ===== 11. 시작 =====
 // 몬스터 영역에 손가락이 닿는 순간(pointerdown) onTap 실행
 monsterAreaEl.addEventListener("pointerdown", onTap);
 
-// 먹이 주기 버튼 (가격은 REWARDS에서 가져와서 글자로 보여 줌)
+// 먹이 주기·알 뽑기 버튼 (가격은 data.js에서 가져와서 글자로 보여 줌)
 feedBtnEl.textContent = "🍖 먹이 주기 (" + REWARDS.feedCost + "코인)";
 feedBtnEl.addEventListener("click", feed);
+eggBtnEl.textContent = "🥚 알 뽑기 (" + GACHA.eggCost + "코인)";
+eggBtnEl.addEventListener("click", buyEgg);
+collectionBtnEl.addEventListener("click", openCollection);
 
-// 방치 보상 팝업의 "받기" 버튼
+// 팝업 버튼들
 offlineOkBtnEl.addEventListener("click", closeOfflinePopup);
+gachaCloseBtnEl.addEventListener("click", closeGachaPopup);
+gachaUseBtnEl.addEventListener("click", function () {
+  setSkin(lastDrawn.id);
+  closeGachaPopup();
+});
+collectionCloseBtnEl.addEventListener("click", closeCollection);
 
 // 개발용: 경험치 +100 버튼
 addExpBtnEl.textContent = "🔧 경험치 +" + DEV.addExp;
 addExpBtnEl.addEventListener("click", function () {
   gainExp(DEV.addExp);
+});
+
+// 개발용: 코인 +1000 버튼
+addCoinsBtnEl.textContent = "🔧 코인 +" + DEV.addCoins;
+addCoinsBtnEl.addEventListener("click", function () {
+  state.coins += DEV.addCoins;
+  saveGame();
+  render();
 });
 
 // 개발용: 마지막으로 본 시각을 1시간 앞으로 당긴 뒤, 진짜 방치 보상과 같은 함수를 부름
