@@ -121,3 +121,16 @@ body {
   font-weight: bold;
   font-size: 1.4rem;
 }
+
+/* ===== 개발용 초기화 버튼: 눈에 덜 띄게 작고 흐리게 ===== */
+.dev-reset {
+  margin-top: 24px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #8a7d70;
+  background: transparent;
+  border: 1px dashed #c9bba5;
+  border-radius: 8px;
+  cursor: pointer;
+}
