@@ -1,0 +1,123 @@
+/* ===== 전체 기본 설정 ===== */
+* {
+  box-sizing: border-box; /* 크기 계산을 테두리까지 포함해서 단순하게 */
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #fdf6e3; /* 따뜻한 크림색 배경 */
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: #4a3f35;
+
+  /* 모바일 배려 */
+  touch-action: manipulation;        /* 빠르게 두 번 탭해도 화면이 확대되지 않게 */
+  user-select: none;                 /* 길게 눌러도 글자가 선택되지 않게 */
+  -webkit-user-select: none;         /* 아이폰(사파리)용 같은 설정 */
+  -webkit-tap-highlight-color: transparent; /* 탭할 때 생기는 파란 상자 없애기 */
+}
+
+/* ===== 게임 화면: 세로로 쌓고 가운데 정렬 ===== */
+.game {
+  height: 100%;
+  max-width: 480px;  /* PC에서 열어도 폰처럼 좁게 보이도록 */
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.level {
+  margin: 0;
+  font-size: 2rem;
+}
+
+/* ===== 경험치 바 ===== */
+.exp-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exp-bar {
+  flex: 1; /* 남는 가로 공간을 모두 차지 */
+  height: 18px;
+  background: #e8dcc4;
+  border-radius: 9px;
+  overflow: hidden; /* 안쪽 막대가 둥근 모서리 밖으로 나가지 않게 */
+}
+
+.exp-fill {
+  width: 0%; /* game.js가 이 값을 바꿔서 바 길이를 조절 */
+  height: 100%;
+  background: #7ac74f;
+  transition: width 0.15s; /* 바가 부드럽게 늘어나도록 */
+}
+
+.exp-text {
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums; /* 숫자가 바뀌어도 글자 폭이 흔들리지 않게 */
+}
+
+/* ===== 몬스터 ===== */
+.monster-area {
+  position: relative; /* "+1" 글자를 이 영역 기준으로 띄우기 위해 */
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.monster {
+  font-size: 140px; /* 손가락으로 누르기 쉽게 크게 */
+  line-height: 1;
+}
+
+/* 탭할 때 붙는 클래스: 몬스터가 통 튀는 효과 */
+.monster.bounce {
+  animation: bounce 0.2s ease-out;
+}
+
+@keyframes bounce {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(0.85, 1.1); } /* 살짝 찌그러졌다가 */
+  100% { transform: scale(1); }         /* 원래대로 */
+}
+
+/* ===== "+1" 떠오르는 글자 ===== */
+.float-text {
+  position: absolute;
+  top: 20%;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #e07a2f;
+  pointer-events: none; /* 이 글자가 탭을 가로막지 않게 */
+  animation: float-up 0.7s ease-out forwards;
+}
+
+@keyframes float-up {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-60px); opacity: 0; } /* 위로 올라가며 사라짐 */
+}
+
+/* ===== 안내 문구 ===== */
+.message {
+  margin: 0;
+  font-size: 1.1rem;
+  min-height: 1.5em; /* 문구가 바뀌어도 화면이 들썩이지 않게 */
+}
+
+/* 레벨업 때 붙는 클래스: 문구 강조 */
+.message.level-up {
+  color: #d94f70;
+  font-weight: bold;
+  font-size: 1.4rem;
+}

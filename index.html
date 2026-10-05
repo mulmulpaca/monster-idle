@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 폰 화면 너비에 맞추고, 손가락으로 확대되지 않게 하는 설정 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>몬스터 아이들</title>
+  <!-- 꾸미기 파일 연결 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <!-- 레벨 표시 -->
+    <h1 class="level">Lv. <span id="level">1</span></h1>
+
+    <!-- 경험치 바: 바깥 상자(exp-bar) 안의 채워지는 막대(exp-fill) 길이를 바꿔서 표시 -->
+    <div class="exp-row">
+      <div class="exp-bar">
+        <div class="exp-fill" id="exp-fill"></div>
+      </div>
+      <span class="exp-text" id="exp-text">0 / 10</span>
+    </div>
+
+    <!-- 몬스터: 이 영역을 탭하면 경험치가 올라감 -->
+    <div class="monster-area" id="monster-area">
+      <div class="monster" id="monster">🐣</div>
+    </div>
+
+    <!-- 안내 문구 (레벨업 때는 "레벨 업!"으로 잠깐 바뀜) -->
+    <p class="message" id="message">몬스터를 탭하세요!</p>
+  </main>
+
+  <!-- 동작 파일 연결 (화면 요소가 다 만들어진 뒤에 읽도록 맨 아래에 둠) -->
+  <script src="game.js"></script>
+</body>
+</html>
