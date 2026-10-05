@@ -8,6 +8,16 @@ const state = {
 // 탭 1번에 얻는 경험치
 const EXP_PER_TAP = 1;
 
+// 진화 단계표: 모습·이름을 바꿀 때는 여기만 고치면 됨
+// - minLevel: 이 레벨부터 이 모습이 됨 (위에서 아래로 레벨이 커지는 순서로 적기)
+// - 나중에 그림으로 바꿀 때는 각 줄에 image: "images/파일이름.png" 를 추가할 예정
+const EVOLUTIONS = [
+  { minLevel: 1,  emoji: "🐣", name: "꼬물이" },
+  { minLevel: 5,  emoji: "🦎", name: "도마돌이" },
+  { minLevel: 10, emoji: "🐊", name: "악어왕" },
+  { minLevel: 20, emoji: "🐉", name: "드래곤" },
+];
+
 // ===== 2. 규칙 =====
 // 다음 레벨까지 필요한 경험치: 레벨 × 10 (Lv1은 10, Lv2는 20, Lv3은 30 …)
 function requiredExp(level) {
@@ -25,6 +35,19 @@ function applyLevelUps() {
     leveledUp = true;
   }
   return leveledUp;
+}
+
+// 레벨에 맞는 진화 단계를 찾아 줌
+// 표를 위에서부터 보면서, minLevel 조건을 만족하는 "마지막" 단계를 고름
+// 예: Lv7 → 1 이상 ✔, 5 이상 ✔, 10 이상 ✘ → 🦎 도마돌이
+function getStage(level) {
+  let stage = EVOLUTIONS[0];
+  for (const candidate of EVOLUTIONS) {
+    if (level >= candidate.minLevel) {
+      stage = candidate;
+    }
+  }
+  return stage;
 }
 
 // ===== 3. 저장 / 불러오기 =====
@@ -93,7 +116,9 @@ const expFillEl = document.getElementById("exp-fill");
 const expTextEl = document.getElementById("exp-text");
 const monsterAreaEl = document.getElementById("monster-area");
 const monsterEl = document.getElementById("monster");
+const monsterNameEl = document.getElementById("monster-name");
 const messageEl = document.getElementById("message");
+const addExpBtnEl = document.getElementById("add-exp-btn");
 const resetBtnEl = document.getElementById("reset-btn");
 
 // ===== 5. 화면 그리기 =====
@@ -106,35 +131,52 @@ function render() {
 
   // 바 길이 = 모은 경험치 ÷ 필요 경험치 (예: 3 / 10 → 30%)
   expFillEl.style.width = (state.exp / need) * 100 + "%";
+
+  // 레벨에 맞는 진화 모습과 이름
+  const stage = getStage(state.level);
+  monsterEl.textContent = stage.emoji;
+  monsterNameEl.textContent = stage.name;
 }
 
-// ===== 6. 탭했을 때 =====
-function onTap() {
-  // ① 경험치 올리기
-  state.exp += EXP_PER_TAP;
+// ===== 6. 경험치 얻기 =====
+// 탭이든 개발용 버튼이든 경험치는 모두 여기를 거침
+function gainExp(amount) {
+  // ① 받기 전의 진화 단계를 기억해 둠
+  const stageBefore = getStage(state.level);
 
-  // ② 필요 경험치를 넘었는지 확인 → 넘었으면 레벨업
+  // ② 경험치 올리고, 필요 경험치를 넘었으면 레벨업
+  state.exp += amount;
   const leveledUp = applyLevelUps();
 
   // ③ 저장하고 화면 갱신
   saveGame();
   render();
 
-  // ④ 효과 보여 주기
-  playBounce();
-  showFloatText("+" + EXP_PER_TAP);
-  if (leveledUp) {
-    showLevelUpMessage();
+  // ④ 받은 후의 단계와 비교 → 달라졌으면 진화! (진화 메시지가 레벨업보다 우선)
+  const stageAfter = getStage(state.level);
+  if (stageAfter !== stageBefore) {
+    playAnimation(monsterAreaEl, "evolve");
+    showMessage("✨ " + stageAfter.name + withRo(stageAfter.name) + " 진화했다!");
+  } else if (leveledUp) {
+    showMessage("레벨 업! 🎉");
   }
+
+  showFloatText("+" + amount);
+}
+
+// 탭했을 때
+function onTap() {
+  playAnimation(monsterEl, "bounce");
+  gainExp(EXP_PER_TAP);
 }
 
 // ===== 7. 효과들 =====
 
-// 몬스터가 통 튀는 효과
-function playBounce() {
-  monsterEl.classList.remove("bounce");
-  void monsterEl.offsetWidth; // 브라우저에게 "지금 한 번 다시 계산해"라고 시켜서, 연타해도 매번 애니메이션이 다시 시작되게 함
-  monsterEl.classList.add("bounce");
+// 요소에 애니메이션 클래스를 붙여서 효과를 재생 (통 튀기, 반짝임 등)
+function playAnimation(el, className) {
+  el.classList.remove(className);
+  void el.offsetWidth; // 브라우저에게 "지금 한 번 다시 계산해"라고 시켜서, 연달아 불러도 매번 애니메이션이 다시 시작되게 함
+  el.classList.add(className);
 }
 
 // "+1" 글자가 위로 떠오르다 사라지는 효과
@@ -150,13 +192,24 @@ function showFloatText(text) {
   });
 }
 
-// 안내 문구를 잠깐 "레벨 업!"으로 바꾸기
+// 이름 뒤에 "로"와 "으로" 중 맞는 것을 골라 줌
+// 받침이 없거나 ㄹ 받침이면 "로", 나머지 받침이면 "으로" (예: 꼬물이로, 악어왕으로)
+function withRo(name) {
+  const code = name.charCodeAt(name.length - 1) - 0xac00; // 한글 "가"부터 몇 번째 글자인지
+  if (code < 0 || code > 11171) {
+    return "로"; // 한글이 아니면 그냥 "로"
+  }
+  const batchim = code % 28; // 0이면 받침 없음, 8이면 ㄹ 받침
+  return batchim === 0 || batchim === 8 ? "로" : "으로";
+}
+
+// 안내 문구를 잠깐 바꿔서 보여 주기 (레벨 업, 진화 등)
 let messageTimer = null;
-function showLevelUpMessage() {
-  messageEl.textContent = "레벨 업! 🎉";
+function showMessage(text) {
+  messageEl.textContent = text;
   messageEl.classList.add("level-up");
 
-  // 연속으로 레벨업하면 이전 타이머는 취소하고 새로 1.5초를 셈
+  // 연달아 불리면 이전 타이머는 취소하고 새로 1.5초를 셈
   clearTimeout(messageTimer);
   messageTimer = setTimeout(function () {
     messageEl.textContent = "몬스터를 탭하세요!";
@@ -167,6 +220,11 @@ function showLevelUpMessage() {
 // ===== 8. 시작 =====
 // 몬스터 영역에 손가락이 닿는 순간(pointerdown) onTap 실행
 monsterAreaEl.addEventListener("pointerdown", onTap);
+
+// 개발용: 경험치 +100 버튼
+addExpBtnEl.addEventListener("click", function () {
+  gainExp(100);
+});
 
 // 초기화 버튼: 실수로 누르지 않게 한 번 더 물어봄
 resetBtnEl.addEventListener("click", function () {

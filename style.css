@@ -92,6 +92,23 @@ body {
   100% { transform: scale(1); }         /* 원래대로 */
 }
 
+.monster-name {
+  margin: 8px 0 -8px;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+/* 진화할 때 붙는 클래스: 하얗게 빛나며 커졌다 돌아오는 반짝임 */
+.monster-area.evolve {
+  animation: evolve 0.6s ease-out;
+}
+
+@keyframes evolve {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  30%  { transform: scale(1.25); filter: brightness(2.5) drop-shadow(0 0 24px #fff6b0); } /* 번쩍! */
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+
 /* ===== "+1" 떠오르는 글자 ===== */
 .float-text {
   position: absolute;
@@ -122,9 +139,16 @@ body {
   font-size: 1.4rem;
 }
 
-/* ===== 개발용 초기화 버튼: 눈에 덜 띄게 작고 흐리게 ===== */
-.dev-reset {
+/* ===== 개발용 버튼들: 눈에 덜 띄게 작고 흐리게 ===== */
+.dev-tools {
   margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap; /* 화면이 좁으면 다음 줄로 */
+  justify-content: center;
+  gap: 8px;
+}
+
+.dev-btn {
   padding: 8px 14px;
   font: inherit;
   font-size: 0.85rem;
