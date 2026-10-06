@@ -90,26 +90,20 @@
         </p>
         <p class="gacha-note" id="gacha-note"></p>
         <div class="popup-buttons">
-          <button class="popup-btn" id="gacha-use-btn" type="button">이 모습으로 키우기</button>
+          <button class="popup-btn" id="gacha-use-btn" type="button">이 몬스터 키우기</button>
           <button class="popup-btn secondary" id="gacha-close-btn" type="button">닫기</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 도감 팝업: 수집률 + 기본 모습 버튼 + 등급별 몬스터 칸 (내용은 game.js가 채움) -->
+  <!-- 도감 팝업: 수집률 + 등급별 몬스터 칸 (내용은 game.js가 채움) -->
   <div class="popup-backdrop" id="dex-popup" hidden>
     <div class="popup dex-popup">
       <h2 class="popup-title">📖 도감 <small id="dex-total">0 / 10 (0%)</small></h2>
       <p class="dex-summary" id="dex-rarity-summary"></p>
 
-      <!-- 기본 모습(레벨에 따라 진화하는 모습)으로 돌아가는 버튼 -->
-      <div class="dex-basic">
-        지금 모습:
-        <button class="dex-basic-btn" id="dex-basic-btn" type="button">🐣 기본 모습</button>
-      </div>
-
-      <!-- 등급별 제목과 몬스터 칸들 -->
+      <!-- 등급별 제목과 몬스터 칸들 (★ = 지금 키우는 몬스터) -->
       <div class="dex-sections" id="dex-sections"></div>
 
       <button class="popup-btn secondary" id="dex-close-btn" type="button">닫기</button>
@@ -125,17 +119,22 @@
 
       <!-- 가진 몬스터만: 기록 -->
       <dl class="detail-records" id="detail-records">
+        <dt>레벨</dt>
+        <dd id="detail-level"></dd>
         <dt>처음 얻은 날</dt>
         <dd id="detail-first"></dd>
         <dt>뽑힌 횟수</dt>
         <dd id="detail-count"></dd>
       </dl>
+      <!-- 가진 몬스터만: 진화 트리 (본 단계는 모습·이름, 못 본 단계는 ???) -->
+      <div class="detail-tree" id="detail-tree"></div>
+
       <!-- 못 모은 몬스터만 -->
       <p class="detail-unknown" id="detail-unknown">아직 만나지 못했어요</p>
 
-      <p class="detail-current" id="detail-current">지금 키우는 모습이에요 ✔</p>
+      <p class="detail-current" id="detail-current">지금 키우는 중이에요 ★</p>
       <div class="popup-buttons">
-        <button class="popup-btn" id="detail-use-btn" type="button">이 모습으로 키우기</button>
+        <button class="popup-btn" id="detail-use-btn" type="button">이 몬스터 키우기</button>
         <button class="popup-btn secondary" id="detail-back-btn" type="button">뒤로</button>
       </div>
     </div>
